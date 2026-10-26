@@ -1,7 +1,7 @@
 [workspace]
 resolver = "2"
-members = ["crates/mediaflow-core", "crates/mediaflow-cli"]
-default-members = ["crates/mediaflow-core", "crates/mediaflow-cli"]
+members = ["crates/mediaflow-core", "crates/mediaflow-cli", "app/src-tauri"]
+default-members = ["crates/mediaflow-core", "crates/mediaflow-cli", "app/src-tauri"]
 
 [workspace.package]
 version = "0.1.0"
