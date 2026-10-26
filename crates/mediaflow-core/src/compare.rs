@@ -93,15 +93,21 @@ pub struct CompareReport {
     pub destinations: Vec<DestinationVerdict>,
     /// Source files present in every destination (verified in Verified mode).
     pub everywhere: usize,
+    /// Source files left out of the check by the chosen exclusion rules.
+    pub excluded: Vec<String>,
     pub previous_check_at: Option<DateTime<Utc>>,
 }
 
 impl Engine {
+    /// `exclusions`: source files matching these rules are listed in
+    /// `excluded` and not required at destinations (visible, never silent).
+    #[allow(clippy::too_many_arguments)]
     pub fn compare(
         &self,
         source: &Path,
         destinations: &[PathBuf],
         mode: CompareMode,
+        exclusions: &[crate::profile::ExclusionRule],
         control: &Control,
         mut progress: impl FnMut(usize, usize),
     ) -> Result<CompareReport> {
@@ -110,7 +116,27 @@ impl Engine {
             .db()
             .last_check(&src_root.to_string_lossy())?
             .map(|(t, _)| t);
-        let src = scan::scan(&src_root, &ScanOptions::default(), control, |_, _| {})?;
+        let mut src = scan::scan(&src_root, &ScanOptions::default(), control, |_, _| {})?;
+        let matchers = exclusions
+            .iter()
+            .map(|r| {
+                globset::GlobBuilder::new(&r.pattern)
+                    .case_insensitive(true)
+                    .build()
+                    .map(|g| g.compile_matcher())
+                    .map_err(|e| {
+                        crate::MfError::InvalidInput(format!(
+                            "invalid pattern {:?}: {e}",
+                            r.pattern
+                        ))
+                    })
+            })
+            .collect::<Result<Vec<_>>>()?;
+        let (excluded, kept): (Vec<_>, Vec<_>) = std::mem::take(&mut src.files)
+            .into_iter()
+            .partition(|f| matchers.iter().any(|m| m.is_match(&f.rel_path)));
+        src.files = kept;
+        let excluded: Vec<String> = excluded.into_iter().map(|f| f.rel_path).collect();
 
         let mut dest_scans: Vec<Option<ScanResult>> = Vec::new();
         for d in destinations {
@@ -328,6 +354,7 @@ impl Engine {
             entries,
             destinations: verdicts,
             everywhere,
+            excluded,
             previous_check_at,
         };
         let summary = serde_json::json!({ "mode": mode, "destinations": report.destinations, "everywhere": everywhere, "source_files": report.source_files });

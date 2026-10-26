@@ -13,3 +13,7 @@ rust-version = "1.89"
 [profile.release]
 lto = "thin"
 codegen-units = 1
+
+# Hashing dominates test time; optimize dependencies even in debug builds.
+[profile.dev.package."*"]
+opt-level = 2

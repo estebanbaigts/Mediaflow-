@@ -25,6 +25,7 @@ fn verified_completeness_after_reorganized_import() {
             &fx.src,
             &[fx.dst.clone(), fx.dst2.clone()],
             CompareMode::Verified,
+            &[],
             &Control::new(),
             |_, _| {},
         )
@@ -47,6 +48,7 @@ fn quick_mode_never_claims_complete() {
             &fx.src,
             std::slice::from_ref(&fx.dst),
             CompareMode::Quick,
+            &[],
             &Control::new(),
             |_, _| {},
         )
@@ -61,6 +63,7 @@ fn quick_mode_never_claims_complete() {
             &fx.src,
             std::slice::from_ref(&fx.dst),
             CompareMode::Verified,
+            &[],
             &Control::new(),
             |_, _| {},
         )
@@ -84,6 +87,7 @@ fn disconnected_destination_is_not_missing() {
             &fx.src,
             &[gone],
             CompareMode::Verified,
+            &[],
             &Control::new(),
             |_, _| {},
         )
@@ -114,6 +118,7 @@ fn corrupted_copy_detected() {
             &fx.src,
             std::slice::from_ref(&fx.dst),
             CompareMode::Verified,
+            &[],
             &Control::new(),
             |_, _| {},
         )
