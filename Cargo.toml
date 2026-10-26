@@ -1,0 +1,15 @@
+[workspace]
+resolver = "2"
+members = ["crates/mediaflow-core", "crates/mediaflow-cli"]
+default-members = ["crates/mediaflow-core", "crates/mediaflow-cli"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+repository = "https://github.com/estebanbaigts/mediaflow-"
+rust-version = "1.89"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1

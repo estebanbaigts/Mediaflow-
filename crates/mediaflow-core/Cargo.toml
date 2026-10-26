@@ -1,0 +1,32 @@
+[package]
+name = "mediaflow-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "MediaFlow engine: scanning, planning, verified copy, journaling and reports. UI-independent."
+
+[dependencies]
+chrono = { version = "0.4.45", features = ["serde"] }
+csv = "1.4.0"
+filetime = "0.2.29"
+fs4 = "1.1.0"
+globset = "0.4.20"
+hex = "0.4.3"
+rusqlite = { version = "0.41.0", features = ["bundled"] }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+sha2 = "0.11.1"
+sysinfo = "0.39.6"
+thiserror = "2.0.21"
+uuid = { version = "1.29.0", features = ["v4"] }
+walkdir = "2.5.0"
+
+[target."cfg(unix)".dependencies]
+libc = "0.2.191"
+
+[target."cfg(windows)".dependencies]
+windows-sys = { version = "0.61.2", features = ["Win32_Storage_FileSystem", "Win32_Foundation"] }
+
+[dev-dependencies]
+tempfile = "3.27.0"
