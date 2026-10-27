@@ -19,4 +19,5 @@ follow SemVer.
 - 102 automated tests including a kill-and-resume end-to-end test.
 
 ### Known limitations
-- Builds verified on Linux only. See docs/ROADMAP.md.
+- Tests green on Linux, macOS and Windows in CI; the desktop app was used by
+  hand on Linux only. See docs/ROADMAP.md.

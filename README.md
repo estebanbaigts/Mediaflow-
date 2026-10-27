@@ -8,9 +8,9 @@ files with templates, recognizes what you already have, and keeps a journal
 of everything. It works offline, needs no account, and never deletes or
 overwrites your files.
 
-> Status: **0.1.0, pre-release.** The engine, CLI and desktop app work and are
-> tested on Linux. macOS and Windows builds have **not** been verified yet —
-> see [docs/ROADMAP.md](docs/ROADMAP.md).
+> Status: **0.1.0, pre-release.** The engine and CLI test suite passes on
+> Linux, macOS and Windows in CI, and the desktop app builds on all three.
+> The app has been used by hand on Linux only — see [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## What it does
 

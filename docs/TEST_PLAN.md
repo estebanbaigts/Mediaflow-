@@ -76,9 +76,14 @@ confirmation.
 - Offline: Rust suite and the release app run in `unshare -n` (no network interface).
 - `npx tauri build --bundles deb` produced `MediaFlow_0.1.0_amd64.deb` (4.6 MiB).
 
+### CI (GitHub Actions)
+Engine + CLI tests on ubuntu-latest, macos-latest and windows-latest (the
+kill-and-resume e2e test included); UI tests; desktop app compiled on all
+three OSes.
+
 ## Not yet covered (gaps)
-- Execution on macOS and Windows (APFS/NTFS/exFAT behaviours, `renamex_np`,
-  `MoveFileExW`, reparse points, long `\\?\` paths).
+- Manual use of the macOS and Windows apps on real hardware; behaviour on
+  exFAT/NTFS external drives and with physical unplugs.
 - Real removable media unplug (simulated by renaming the root).
 - Real ENOSPC on a small loopback file system (simulated by fault injection).
 - Real permission errors (environment runs as root).

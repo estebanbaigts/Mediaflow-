@@ -11,8 +11,9 @@ reusable component and no migration risk. Every decision below was made from
 scratch.
 
 Environment used for development and verification: Linux x86-64, Rust 1.97,
-Node 22, WebKitGTK 4.1. **macOS and Windows builds have not been run** (see
-§9 and `docs/RELEASE_CHECKLIST.md`).
+Node 22, WebKitGTK 4.1. CI runs the engine and CLI test suite on macOS and
+Windows too, and compiles the desktop app there; the macOS and Windows apps
+have not been used by hand yet (see §9 and `docs/RELEASE_CHECKLIST.md`).
 
 ## 2. Technology choices
 
@@ -206,6 +207,6 @@ size/mtime/inode, progress events throttled to ~7/s.
   treated as distinct names (they would then be caught by the no-replace
   rename, never overwritten).
 - macOS and Windows code paths (`renamex_np`, `MoveFileExW`, reparse points)
-  compile-time selected and reviewed but **not executed** in this
-  environment.
+  are exercised by the CI test suite on the runners' system drives (APFS,
+  NTFS) only; external exFAT drives and real unplugs are untested there.
 - Custom profiles cannot yet be created from the UI.

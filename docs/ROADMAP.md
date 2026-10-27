@@ -28,19 +28,18 @@ any deletion/cleanup feature.
 | 9 | Resume without false completion | ✅ | crash/kill tests |
 | 10 | Permissions enforced in the engine | ✅ | grants re-checked at execution, security tests |
 | 11 | Critical tests pass | ✅ | 102 tests |
-| 12 | Available builds tested | ⚠️ Linux only | Linux: tests, `.deb` bundle built, release app launched and used; macOS/Windows not built or run |
+| 12 | Available builds tested | ⚠️ partly | CI: engine + CLI tests (incl. kill/resume e2e) green on Linux, macOS and Windows; desktop app compiles on all three. Linux `.deb` built and app used manually. macOS/Windows apps not yet launched or tested by hand |
 | 13 | Errors understandable | ✅ | `user_message()`; UI shows them |
 | 14 | Offline operation demonstrated | ✅ Linux | full Rust suite incl. kill/resume e2e, and the release desktop app, run inside an empty network namespace (`unshare -n`); no network code anywhere |
 | 15 | Data stays local | ✅ | no network code, no telemetry |
 | 16 | Docs match behaviour | ✅ | this repository's docs |
 
-**v0.1.0 is therefore not a release-ready MVP until #12 is done (macOS and Windows builds verified).**
+**v0.1.0 is therefore not a release-ready MVP until #12 is done (macOS and Windows apps exercised by hand on real hardware).**
 
 ## Next phases
 
 ### Phase 5 — Stabilization (next)
-- CI on macOS, Windows, Linux (workflow provided, never run yet). Acceptance:
-  all tests green on the three OSes.
+- ~~CI on macOS, Windows, Linux~~ done: all tests green on the three OSes.
 - Run the integration suite on exFAT, APFS and NTFS volumes, and on a real
   USB card reader with a physical unplug. Acceptance: same results as Linux.
 - Offline proof on macOS/Windows (Linux done with `unshare -n`).
