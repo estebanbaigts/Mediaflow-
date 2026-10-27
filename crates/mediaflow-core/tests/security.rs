@@ -273,3 +273,44 @@ fn report_export_never_overwrites() {
         .write(&out, mediaflow_core::report::ReportFormat::Csv)
         .is_err());
 }
+
+#[test]
+fn detected_card_ids_only_grant_read_access_to_that_card() {
+    use mediaflow_core::volumes::{DetectionRegistry, Volume};
+    let fx = Fx::new();
+    fx.write_src("DCIM/a.jpg", b"x");
+    let e = Engine::open(&fx.db).unwrap();
+    let card = Volume {
+        name: "CARD".into(),
+        mount_point: fx.src.to_string_lossy().into_owned(),
+        file_system: "exfat".into(),
+        total_bytes: 1,
+        available_bytes: 0,
+        removable: true,
+        read_only: false,
+    };
+    let mut reg = DetectionRegistry::new(&[]);
+    let id = reg.update(&[card])[0].id.clone();
+
+    // Anything that is not an id minted by the registry is refused,
+    // including the card's own path.
+    for bogus in ["", "CARD", fx.src.to_str().unwrap(), "../../etc"] {
+        assert!(
+            matches!(e.authorize_detected(&reg, bogus), Err(MfError::NotFound(_))),
+            "{bogus:?}"
+        );
+    }
+    assert!(e.grants().unwrap().is_empty());
+
+    let g = e.authorize_detected(&reg, &id).unwrap();
+    assert_eq!(g.kind, GrantKind::Source);
+    // A source grant never allows writing there.
+    assert!(matches!(
+        e.check_authorized(&fx.src, true),
+        Err(MfError::NotAuthorized(_))
+    ));
+
+    // Once unplugged, the id stops working.
+    reg.update(&[]);
+    assert!(e.authorize_detected(&reg, &id).is_err());
+}

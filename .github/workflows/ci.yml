@@ -43,12 +43,14 @@ jobs:
       - run: npm test
 
   desktop:
-    name: Desktop build (${{ matrix.os }})
+    name: Installers (${{ matrix.name }})
     needs: [engine, ui]
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-22.04, macos-latest, windows-latest]
+        include:
+          - { os: ubuntu-22.04, name: Linux, bundles: "appimage,deb,rpm" }
+          - { os: windows-latest, name: Windows, bundles: "nsis,msi" }
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -57,8 +59,58 @@ jobs:
         with:
           node-version: 22
       - if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev libayatana-appindicator3-dev
+        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev libayatana-appindicator3-dev rpm
       - run: npm ci
         working-directory: app
-      - run: npx tauri build --no-bundle
+      - run: npx tauri build --bundles ${{ matrix.bundles }}
         working-directory: app
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MediaFlow-${{ matrix.name }}-unsigned
+          path: |
+            target/release/bundle/appimage/*.AppImage
+            target/release/bundle/deb/*.deb
+            target/release/bundle/rpm/*.rpm
+            target/release/bundle/nsis/*.exe
+            target/release/bundle/msi/*.msi
+          if-no-files-found: error
+          retention-days: 14
+
+  macos-widget:
+    name: macOS widget (StatusKit tests + extension build)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: StatusKit unit tests (shared JSON contract with Rust)
+        run: swift test --package-path app/macos-widget/StatusKit
+      - run: brew install xcodegen
+      - name: Build the widget extension (unsigned)
+        working-directory: app/macos-widget
+        run: |
+          xcodegen generate
+          xcodebuild -project MediaFlowWidget.xcodeproj -scheme MediaFlowWidget \
+            -configuration Release -derivedDataPath build CODE_SIGNING_ALLOWED=NO build
+
+  macos-dmg:
+    name: macOS app + widget (DMG artifact)
+    needs: [engine, ui, macos-widget]
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: brew install xcodegen
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+      - name: Build (universal), embed widget, ad-hoc sign, package
+        env:
+          UNIVERSAL: "1"
+        run: scripts/build-macos.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MediaFlow-macos-unsigned
+          path: target/release/MediaFlow-macos.dmg
+          if-no-files-found: error
+          retention-days: 14

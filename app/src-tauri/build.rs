@@ -19,6 +19,8 @@ const COMMANDS: &[&str] = &[
     "run_compare",
     "library",
     "overview",
+    "detected_volumes",
+    "use_detected_volume",
 ];
 
 fn main() {

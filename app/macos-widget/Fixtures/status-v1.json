@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "updated_at": "2026-10-27T10:30:00Z",
+  "current": {
+    "session_id": "b1c2",
+    "project": "Northwind launch film",
+    "source_label": "A7S III · card A",
+    "state": "copying",
+    "fraction": 0.42,
+    "bytes_done": 42000000000,
+    "bytes_total": 100000000000,
+    "eta_seconds": 312.5,
+    "current_file": "PRIVATE/M4ROOT/CLIP/C0042.MP4"
+  },
+  "last": {
+    "session_id": "a0b1",
+    "project": "Martin & Léa — wedding",
+    "source_label": "Card B",
+    "state": "completed",
+    "verified_ok": true,
+    "finished_at": "2026-10-26T23:40:19Z",
+    "files_done": 812,
+    "bytes_done": 248000000000,
+    "problems": 0
+  },
+  "attention": 1,
+  "destinations": [
+    { "label": "RAID Projects", "available": true, "free_bytes": 3200000000000 },
+    { "label": "Shuttle SSD", "available": false, "free_bytes": null }
+  ]
+}

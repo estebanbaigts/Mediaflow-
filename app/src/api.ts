@@ -5,6 +5,7 @@ import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import type {
   AppInfo,
   CompareReport,
+  DetectedVolume,
   GrantView,
   ImportFinished,
   LibraryRow,
@@ -62,6 +63,8 @@ export const api = {
     call<CompareReport>("run_compare", { args }),
   library: (query: string) => call<LibraryRow[]>("library", { query }),
   overview: () => call<Overview>("overview"),
+  detectedVolumes: () => call<DetectedVolume[]>("detected_volumes"),
+  useDetectedVolume: (id: string) => call<GrantView>("use_detected_volume", { id }),
 };
 
 export const events = {
@@ -71,4 +74,9 @@ export const events = {
   onPlanProgress: (f: (p: PhaseProgress) => void): Promise<UnlistenFn> => listen<PhaseProgress>("plan-progress", (e) => f(e.payload)),
   onCompareProgress: (f: (p: PhaseProgress) => void): Promise<UnlistenFn> =>
     listen<PhaseProgress>("compare-progress", (e) => f(e.payload)),
+  /** A removable volume appeared (notification already shown by the system). */
+  onVolumeDetected: (f: (v: DetectedVolume) => void): Promise<UnlistenFn> =>
+    listen<DetectedVolume>("volume-detected", (e) => f(e.payload)),
+  /** Navigation requested from the menu-bar icon. */
+  onNavigate: (f: (r: { page: string }) => void): Promise<UnlistenFn> => listen<{ page: string }>("navigate", (e) => f(e.payload)),
 };

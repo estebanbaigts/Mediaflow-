@@ -20,6 +20,7 @@ use tauri_plugin_dialog::DialogExt;
 
 pub struct AppState {
     pub engine: Arc<Engine>,
+    pub native: crate::native::Native,
     pub plans: Mutex<HashMap<String, ImportPlan>>,
     pub controls: Mutex<HashMap<String, Control>>,
 }
@@ -234,8 +235,9 @@ pub fn discard_plan(state: State<'_, AppState>, plan_id: String) {
         .remove(&plan_id);
 }
 
-fn spawn_run(app: AppHandle, state: &AppState, id: String) -> R<()> {
+pub(crate) fn spawn_run(app: AppHandle, state: &AppState, id: String) -> R<()> {
     let engine = state.engine.clone();
+    let native = state.native.clone();
     if engine.is_running(&id) {
         return Err(ui("invalid_input", "this import is already running"));
     }
@@ -250,7 +252,13 @@ fn spawn_run(app: AppHandle, state: &AppState, id: String) -> R<()> {
         .spawn(move || {
             let res = engine.run_session(&id, &control, RunOptions::default(), &mut |p| {
                 let _ = app.emit("import-progress", p);
+                native.on_progress(p);
             });
+            let final_state = match &res {
+                Ok(s) => *s,
+                Err(_) => SessionState::Failed,
+            };
+            native.on_finished(&id, final_state);
             let payload = match res {
                 Ok(s) => serde_json::json!({ "session_id": id, "state": s }),
                 Err(e) => serde_json::json!({ "session_id": id, "state": SessionState::Failed, "error": UiError::from(e) }),
@@ -279,20 +287,24 @@ pub fn start_import(app: AppHandle, state: State<'_, AppState>, plan_id: String)
     Ok(id)
 }
 
-#[tauri::command]
-pub fn pause_import(state: State<'_, AppState>, session_id: String) -> R<()> {
+pub(crate) fn pause(state: &AppState, session_id: &str) -> R<()> {
     match state
         .controls
         .lock()
         .unwrap_or_else(|e| e.into_inner())
-        .get(&session_id)
+        .get(session_id)
     {
-        Some(c) if state.engine.is_running(&session_id) => {
+        Some(c) if state.engine.is_running(session_id) => {
             c.pause();
             Ok(())
         }
         _ => Err(ui("invalid_input", "This import is not running.")),
     }
+}
+
+#[tauri::command]
+pub fn pause_import(state: State<'_, AppState>, session_id: String) -> R<()> {
+    pause(&state, &session_id)
 }
 
 #[tauri::command]
@@ -514,4 +526,17 @@ pub fn overview(state: State<'_, AppState>) -> R<Overview> {
         sources,
         volumes: core_volumes(),
     })
+}
+
+/// Removable volumes that appeared while MediaFlow was running.
+#[tauri::command]
+pub fn detected_volumes(state: State<'_, AppState>) -> Vec<crate::native::DetectedVolume> {
+    state.native.detected_volumes()
+}
+
+/// The user chose to import from a detected card. The id refers to a volume
+/// the backend itself detected; the UI cannot name an arbitrary path.
+#[tauri::command]
+pub fn use_detected_volume(state: State<'_, AppState>, id: String) -> R<GrantView> {
+    Ok(grant_view(state.native.authorize_detected(&id)?))
 }

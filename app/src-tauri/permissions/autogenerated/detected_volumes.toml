@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-detected-volumes"
+description = "Enables the detected_volumes command without any pre-configured scope."
+commands.allow = ["detected_volumes"]
+
+[[permission]]
+identifier = "deny-detected-volumes"
+description = "Denies the detected_volumes command without any pre-configured scope."
+commands.deny = ["detected_volumes"]

@@ -21,6 +21,7 @@ pub mod progress;
 pub mod report;
 pub mod scan;
 pub mod state;
+pub mod status;
 pub mod template;
 pub mod util;
 pub mod volumes;

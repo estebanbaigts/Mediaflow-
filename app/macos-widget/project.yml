@@ -1,0 +1,42 @@
+# XcodeGen spec for the MediaFlow widget extension.
+#   brew install xcodegen && xcodegen generate && open MediaFlowWidget.xcodeproj
+name: MediaFlowWidget
+options:
+  bundleIdPrefix: org.mediaflow
+  deploymentTarget:
+    macOS: "14.0"
+packages:
+  StatusKit:
+    path: StatusKit
+settings:
+  base:
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    SWIFT_VERSION: "5.9"
+targets:
+  MediaFlowWidget:
+    type: app-extension
+    platform: macOS
+    sources: [Widget]
+    dependencies:
+      - package: StatusKit
+      - sdk: WidgetKit.framework
+      - sdk: SwiftUI.framework
+    info:
+      path: Widget/Info.plist
+      properties:
+        CFBundleDisplayName: MediaFlow
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    entitlements:
+      path: Widget/MediaFlowWidget.entitlements
+      properties:
+        com.apple.security.app-sandbox: true
+        com.apple.security.application-groups: [group.org.mediaflow.app]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: org.mediaflow.app.widget
+        PRODUCT_NAME: MediaFlowWidget
+        SKIP_INSTALL: YES

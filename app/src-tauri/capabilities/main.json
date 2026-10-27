@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "main",
-  "description": "The only permissions granted to the MediaFlow UI: listening to engine events and the explicit list of MediaFlow commands. No filesystem, shell, HTTP or dialog access from the web view.",
+  "description": "The only permissions granted to the MediaFlow UI: listening to engine events and the explicit list of MediaFlow commands. No filesystem, shell, HTTP, dialog or notification access from the web view (notifications are sent by the Rust side).",
   "windows": [
     "main"
   ],
@@ -26,6 +26,8 @@
     "allow-export-report",
     "allow-run-compare",
     "allow-library",
-    "allow-overview"
+    "allow-overview",
+    "allow-detected-volumes",
+    "allow-use-detected-volume"
   ]
 }
