@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-run-compare"
+description = "Enables the run_compare command without any pre-configured scope."
+commands.allow = ["run_compare"]
+
+[[permission]]
+identifier = "deny-run-compare"
+description = "Denies the run_compare command without any pre-configured scope."
+commands.deny = ["run_compare"]

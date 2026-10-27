@@ -1,0 +1,31 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "main",
+  "description": "The only permissions granted to the MediaFlow UI: listening to engine events and the explicit list of MediaFlow commands. No filesystem, shell, HTTP or dialog access from the web view.",
+  "windows": [
+    "main"
+  ],
+  "permissions": [
+    "core:event:allow-listen",
+    "core:event:allow-unlisten",
+    "core:app:allow-version",
+    "allow-app-info",
+    "allow-list-volumes",
+    "allow-list-profiles",
+    "allow-list-grants",
+    "allow-pick-folder",
+    "allow-revoke-grant",
+    "allow-create-plan",
+    "allow-discard-plan",
+    "allow-start-import",
+    "allow-pause-import",
+    "allow-resume-import",
+    "allow-cancel-import",
+    "allow-list-sessions",
+    "allow-session-detail",
+    "allow-export-report",
+    "allow-run-compare",
+    "allow-library",
+    "allow-overview"
+  ]
+}
