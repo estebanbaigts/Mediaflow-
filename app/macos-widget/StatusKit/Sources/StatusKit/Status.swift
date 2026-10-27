@@ -69,6 +69,12 @@ public struct DestinationStatus: Codable, Equatable, Sendable, Identifiable {
     public var freeBytes: UInt64?
     public var id: String { label }
 
+    public init(label: String, available: Bool, freeBytes: UInt64?) {
+        self.label = label
+        self.available = available
+        self.freeBytes = freeBytes
+    }
+
     enum CodingKeys: String, CodingKey {
         case label, available
         case freeBytes = "free_bytes"

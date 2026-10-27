@@ -145,20 +145,6 @@ struct MediumView: View {
     }
 }
 
-struct AccessoryView: View {
-    let entry: StatusEntry
-
-    var body: some View {
-        HStack(spacing: 6) {
-            Image(systemName: entry.state.symbol)
-            VStack(alignment: .leading) {
-                Text(entry.state.title).font(.headline).lineLimit(1)
-                Text(entry.state.subtitle).font(.caption).lineLimit(1)
-            }
-        }
-    }
-}
-
 struct MediaFlowWidgetView: View {
     @Environment(\.widgetFamily) private var family
     let entry: StatusEntry
@@ -166,7 +152,6 @@ struct MediaFlowWidgetView: View {
     var body: some View {
         switch family {
         case .systemMedium, .systemLarge: MediumView(entry: entry)
-        case .accessoryRectangular, .accessoryInline: AccessoryView(entry: entry)
         default: SmallView(entry: entry)
         }
     }
@@ -183,6 +168,6 @@ struct MediaFlowWidget: Widget {
         }
         .configurationDisplayName("MediaFlow")
         .description("Your current import, the last verified import and free space on your destinations.")
-        .supportedFamilies([.systemSmall, .systemMedium, .accessoryRectangular])
+        .supportedFamilies([.systemSmall, .systemMedium])
     }
 }
