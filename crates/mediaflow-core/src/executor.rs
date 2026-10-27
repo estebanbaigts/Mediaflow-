@@ -90,7 +90,9 @@ struct Dest {
 
 struct Writer {
     op: usize,
-    file: std::fs::File,
+    /// Open while writing; closed after fsync so the temp file can be
+    /// verified and renamed without an open handle (required on Windows).
+    file: Option<std::fs::File>,
     temp: PathBuf,
     target: PathBuf,
     target_rel: String,
@@ -725,7 +727,10 @@ impl Runner<'_> {
             let mut k = 0;
             while k < writers.len() {
                 let w = &mut writers[k];
-                let mut res = w.file.write_all(&buf[..n]);
+                let mut res = match w.file.as_mut() {
+                    Some(f) => f.write_all(&buf[..n]),
+                    None => Err(std::io::Error::other("temporary file already closed")),
+                };
                 if res.is_ok() {
                     if let Err(f) = self.opts.hooks.after_write(
                         &file.rel_path,
@@ -779,7 +784,10 @@ impl Runner<'_> {
         // fsync temps, journal `verifying`.
         let mut k = 0;
         while k < writers.len() {
-            let sync = writers[k].file.sync_all();
+            let sync = match writers[k].file.take() {
+                Some(f) => f.sync_all(),
+                None => Ok(()),
+            };
             if let Err(e) = sync {
                 let w = writers.remove(k);
                 let err = match self.classify_dest_error(w.op, &w.temp, e) {
@@ -1046,7 +1054,7 @@ impl Runner<'_> {
         match fsops::create_new(&temp) {
             Ok(file) => Ok(Some(Writer {
                 op: i,
-                file,
+                file: Some(file),
                 temp,
                 target,
                 target_rel,
