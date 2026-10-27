@@ -142,13 +142,21 @@ jobs:
     needs: [macos, windows, linux, cli]
     runs-on: ubuntu-latest
     steps:
+      # Only this workflow's artifacts: when called from ci.yml the run also
+      # holds CI's own build artifacts, which must not end up in the release.
       - uses: actions/download-artifact@v4
         with:
           path: dist
+          pattern: installers-*
+          merge-multiple: true
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          pattern: cli-*
           merge-multiple: true
       - name: Checksums
         working-directory: dist
-        run: sha256sum * > SHA256SUMS && cat SHA256SUMS
+        run: ls -la && sha256sum * > SHA256SUMS && cat SHA256SUMS
       - uses: softprops/action-gh-release@v2
         with:
           # Tag push: draft. Manual run: tag created on this commit.
