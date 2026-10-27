@@ -6,3 +6,6 @@ node_modules/
 *.sqlite
 *.lock.tmp
 .DS_Store
+/app/macos-widget/*.xcodeproj
+/app/macos-widget/build
+/app/macos-widget/StatusKit/.build

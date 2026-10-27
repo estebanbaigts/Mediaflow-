@@ -62,3 +62,38 @@ jobs:
         working-directory: app
       - run: npx tauri build --no-bundle
         working-directory: app
+
+  macos-widget:
+    name: macOS widget (StatusKit tests + extension build)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: StatusKit unit tests (shared JSON contract with Rust)
+        run: swift test --package-path app/macos-widget/StatusKit
+      - run: brew install xcodegen
+      - name: Build the widget extension (unsigned)
+        working-directory: app/macos-widget
+        run: |
+          xcodegen generate
+          xcodebuild -project MediaFlowWidget.xcodeproj -scheme MediaFlowWidget \
+            -configuration Release -derivedDataPath build CODE_SIGNING_ALLOWED=NO build
+
+  macos-dmg:
+    name: macOS app + widget (DMG artifact)
+    needs: [engine, ui, macos-widget]
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: brew install xcodegen
+      - name: Build, embed widget, ad-hoc sign, package
+        run: scripts/build-macos.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MediaFlow-macos-unsigned
+          path: target/release/MediaFlow-macos.dmg
+          if-no-files-found: error
+          retention-days: 14

@@ -181,3 +181,26 @@ mod tests {
         );
     }
 }
+
+#[cfg(test)]
+mod contract {
+    use super::*;
+
+    /// The same fixture is decoded by the Swift widget's tests
+    /// (app/macos-widget/StatusKit). Changing the format means bumping
+    /// STATUS_VERSION and updating both sides.
+    #[test]
+    fn shared_fixture_matches_rust_model() {
+        let raw = include_str!("../../../app/macos-widget/Fixtures/status-v1.json");
+        let s: StatusSnapshot =
+            serde_json::from_str(raw).expect("fixture must match StatusSnapshot");
+        assert_eq!(s.version, STATUS_VERSION);
+        let c = s.current.as_ref().unwrap();
+        assert_eq!(c.state, SessionState::Copying);
+        assert!(s.last.as_ref().unwrap().verified_ok);
+        // And what Rust writes round-trips to the same structure.
+        let again: StatusSnapshot =
+            serde_json::from_str(&serde_json::to_string(&s).unwrap()).unwrap();
+        assert_eq!(again, s);
+    }
+}
