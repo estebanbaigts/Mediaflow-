@@ -377,3 +377,10 @@ export interface PhaseProgress {
   done: number;
   total: number;
 }
+
+export interface DetectedVolume {
+  id: string;
+  name: string;
+  mount_point: string;
+  total_bytes: number;
+}

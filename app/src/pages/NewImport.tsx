@@ -305,13 +305,21 @@ function PlanPreview({ plan }: { plan: PlanView }) {
   );
 }
 
-export function NewImportPage({ go, initialSession }: { go: Navigate; initialSession?: string }) {
+export function NewImportPage({
+  go,
+  initialSession,
+  initialSource,
+}: {
+  go: Navigate;
+  initialSession?: string;
+  initialSource?: { id: string; label: string };
+}) {
   const [step, setStep] = useState(initialSession ? 3 : 0);
   const [sessionId, setSessionId] = useState<string | null>(initialSession ?? null);
   const grants = useLoad(() => api.grants());
   const profiles = useLoad(() => api.profiles());
-  const [source, setSource] = useState<string | null>(null);
-  const [label, setLabel] = useState("");
+  const [source, setSource] = useState<string | null>(initialSource?.id ?? null);
+  const [label, setLabel] = useState(initialSource?.label ?? "");
   const [dests, setDests] = useState<string[]>([]);
   const [profileId, setProfileId] = useState("youtube");
   const [project, setProject] = useState("");

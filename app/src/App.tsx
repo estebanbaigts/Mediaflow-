@@ -9,10 +9,12 @@ import { DuplicatesPage } from "./pages/Duplicates";
 import { VerifyPage } from "./pages/Verify";
 import { HistoryPage } from "./pages/History";
 import { SettingsPage } from "./pages/Settings";
+import { DetectedCards } from "./components/DetectedCards";
+import { events } from "./api";
 
 export type Route =
   | { page: "overview" }
-  | { page: "import"; sessionId?: string }
+  | { page: "import"; sessionId?: string; source?: { id: string; label: string } }
   | { page: "projects" }
   | { page: "library" }
   | { page: "duplicates" }
@@ -104,12 +106,30 @@ function Shell() {
     return () => window.removeEventListener("keydown", onKey);
   }, [go]);
 
+  // Navigation requested from the menu-bar / notification-area icon.
+  useEffect(() => {
+    let un: (() => void) | undefined;
+    let alive = true;
+    void events
+      .onNavigate((r) => {
+        if (NAV.some((n) => n.page === r.page)) go({ page: r.page } as Route);
+      })
+      .then((u) => (alive ? (un = u) : u()));
+    return () => {
+      alive = false;
+      un?.();
+    };
+  }, [go]);
+
   return (
     <div className="app">
       <Sidebar route={route} go={go} />
       <main className="content" ref={mainRef} tabIndex={-1} aria-live="polite">
+        <DetectedCards go={go} />
         {route.page === "overview" && <OverviewPage go={go} />}
-        {route.page === "import" && <NewImportPage go={go} initialSession={route.sessionId} key={route.sessionId ?? "new"} />}
+        {route.page === "import" && (
+          <NewImportPage go={go} initialSession={route.sessionId} initialSource={route.source} key={route.sessionId ?? route.source?.id ?? "new"} />
+        )}
         {route.page === "projects" && <ProjectsPage go={go} />}
         {route.page === "library" && <LibraryPage />}
         {route.page === "duplicates" && <DuplicatesPage go={go} />}

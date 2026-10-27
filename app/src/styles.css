@@ -1147,3 +1147,16 @@ ul.plain {
     grid-template-columns: 1fr;
   }
 }
+
+/* ---------- Detected cards ---------- */
+.detected {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 18px 32px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.detected:empty {
+  display: none;
+}

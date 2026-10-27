@@ -27,6 +27,7 @@ beforeEach(() => {
   onInvoke("resume_import", () => null);
   onInvoke("cancel_import", () => null);
   onInvoke("list_sessions", () => []);
+  onInvoke("detected_volumes", () => []);
 });
 
 async function goToImport(user: ReturnType<typeof userEvent.setup>) {
@@ -183,5 +184,35 @@ describe("cancel", () => {
     const dialog = screen.getByRole("dialog", { hidden: true });
     await user.click(within(dialog).getByRole("button", { name: "Cancel import", hidden: true }));
     expect(calls.some((c) => c.cmd === "cancel_import" && c.args?.sessionId === "s-1")).toBe(true);
+  });
+});
+
+describe("system integration", () => {
+  it("offers a detected card as a source, without starting anything", async () => {
+    onInvoke("use_detected_volume", (a) => {
+      expect(a).toEqual({ id: "vol-1" });
+      grants = [srcGrant];
+      return srcGrant;
+    });
+    const user = userEvent.setup();
+    render(<App />);
+    await screen.findByRole("heading", { name: "Overview" });
+    act(() => emit("volume-detected", { id: "vol-1", name: "A7S3", mount_point: "/Volumes/A7S3", total_bytes: 256e9 }));
+    expect(await screen.findByText("A7S3 connected")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /Import from this card/ }));
+    expect(await screen.findByRole("heading", { name: "New import" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Source name")).toHaveValue("A7S3");
+    expect(screen.getByRole("button", { name: "Continue" })).toBeEnabled();
+    expect(calls.some((c) => c.cmd === "create_plan" || c.cmd === "start_import")).toBe(false);
+    expect(screen.queryByText("A7S3 connected")).not.toBeInTheDocument();
+  });
+
+  it("follows navigation requested from the menu-bar icon", async () => {
+    render(<App />);
+    await screen.findByRole("heading", { name: "Overview" });
+    act(() => emit("navigate", { page: "history" }));
+    expect(await screen.findByRole("heading", { name: "History" })).toBeInTheDocument();
+    act(() => emit("navigate", { page: "not-a-page" }));
+    expect(screen.getByRole("heading", { name: "History" })).toBeInTheDocument();
   });
 });
