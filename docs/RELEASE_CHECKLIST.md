@@ -22,6 +22,11 @@ than ticking something that was not actually run.
 - [ ] macOS build signed and notarized; Windows installer signed
 - [ ] SHA-256 checksums of release artifacts published
 
+## Publishing
+- [ ] Push a tag `vX.Y.Z` → the *Release* workflow builds every installer and opens a **draft** release with `SHA256SUMS`
+- [ ] Download each installer from the draft and install it on a clean machine of that OS
+- [ ] Publish the draft
+
 ## Docs
 - [ ] CHANGELOG updated, version bumped in Cargo.toml / package.json / tauri.conf.json
 - [ ] ROADMAP "definition of done" table updated with evidence
