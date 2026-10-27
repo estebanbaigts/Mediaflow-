@@ -33,20 +33,26 @@ pub struct UiError {
 
 impl From<MfError> for UiError {
     fn from(e: MfError) -> Self {
-        UiError { code: e.code().into(), message: e.user_message() }
+        UiError {
+            code: e.code().into(),
+            message: e.user_message(),
+        }
     }
 }
 
 fn ui(code: &str, message: impl Into<String>) -> UiError {
-    UiError { code: code.into(), message: message.into() }
+    UiError {
+        code: code.into(),
+        message: message.into(),
+    }
 }
 
 type R<T> = Result<T, UiError>;
 
-fn blocking<T: Send + 'static>(f: impl FnOnce() -> R<T> + Send + 'static) -> impl std::future::Future<Output = R<T>> {
-    async move {
-        tauri::async_runtime::spawn_blocking(f).await.map_err(|e| ui("internal", format!("background task failed: {e}")))?
-    }
+async fn blocking<T: Send + 'static>(f: impl FnOnce() -> R<T> + Send + 'static) -> R<T> {
+    tauri::async_runtime::spawn_blocking(f)
+        .await
+        .map_err(|e| ui("internal", format!("background task failed: {e}")))?
 }
 
 #[derive(Serialize)]
@@ -60,7 +66,10 @@ pub struct AppInfo {
 pub fn app_info(state: State<'_, AppState>) -> AppInfo {
     AppInfo {
         version: env!("CARGO_PKG_VERSION").into(),
-        library_path: state.engine.db_path().map(|p| p.to_string_lossy().into_owned()),
+        library_path: state
+            .engine
+            .db_path()
+            .map(|p| p.to_string_lossy().into_owned()),
         network: "MediaFlow makes no network connections.",
     }
 }
@@ -85,7 +94,11 @@ pub struct GrantView {
 
 fn grant_view(g: Grant) -> GrantView {
     let p = PathBuf::from(&g.path);
-    GrantView { available: p.is_dir(), free_bytes: mediaflow_core::volumes::available_space(&p), grant: g }
+    GrantView {
+        available: p.is_dir(),
+        free_bytes: mediaflow_core::volumes::available_space(&p),
+        grant: g,
+    }
 }
 
 #[tauri::command]
@@ -96,21 +109,33 @@ pub fn list_grants(state: State<'_, AppState>) -> R<Vec<GrantView>> {
 /// Open the native folder picker. The chosen folder becomes a grant; the
 /// path never travels from the UI to the engine.
 #[tauri::command]
-pub async fn pick_folder(app: AppHandle, state: State<'_, AppState>, kind: String) -> R<Option<GrantView>> {
+pub async fn pick_folder(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    kind: String,
+) -> R<Option<GrantView>> {
     let kind = match kind.as_str() {
         "source" => GrantKind::Source,
         "destination" => GrantKind::Destination,
         _ => return Err(ui("invalid_input", "unknown folder kind")),
     };
-    let title = if kind == GrantKind::Source { "Choose the card or folder to import" } else { "Choose a destination folder" };
+    let title = if kind == GrantKind::Source {
+        "Choose the card or folder to import"
+    } else {
+        "Choose a destination folder"
+    };
     let picked = {
         let app = app.clone();
-        tauri::async_runtime::spawn_blocking(move || app.dialog().file().set_title(title).blocking_pick_folder())
-            .await
-            .map_err(|e| ui("internal", e.to_string()))?
+        tauri::async_runtime::spawn_blocking(move || {
+            app.dialog().file().set_title(title).blocking_pick_folder()
+        })
+        .await
+        .map_err(|e| ui("internal", e.to_string()))?
     };
     let Some(fp) = picked else { return Ok(None) };
-    let path = fp.into_path().map_err(|_| ui("invalid_input", "this location is not a local folder"))?;
+    let path = fp
+        .into_path()
+        .map_err(|_| ui("invalid_input", "this location is not a local folder"))?;
     let g = state.engine.authorize(&path, kind)?;
     Ok(Some(grant_view(g)))
 }
@@ -145,18 +170,26 @@ struct PlanProgress {
 }
 
 #[tauri::command]
-pub async fn create_plan(app: AppHandle, state: State<'_, AppState>, args: PlanArgs) -> R<PlanView> {
+pub async fn create_plan(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    args: PlanArgs,
+) -> R<PlanView> {
     let engine = state.engine.clone();
     let src = engine.grant(&args.source_grant)?;
     let mut dests = Vec::new();
     for id in &args.destination_grants {
         let g = engine.grant(id)?;
         if g.kind != GrantKind::Destination {
-            return Err(ui("not_authorized", "this folder was added as a source, not a destination"));
+            return Err(ui(
+                "not_authorized",
+                "this folder was added as a source, not a destination",
+            ));
         }
         dests.push(PathBuf::from(g.path));
     }
-    let profile = builtin(&args.profile_id).ok_or_else(|| ui("invalid_input", "unknown profile"))?;
+    let profile =
+        builtin(&args.profile_id).ok_or_else(|| ui("invalid_input", "unknown profile"))?;
     let label = args.label.filter(|l| !l.trim().is_empty());
     let req = PlanRequest {
         source: PathBuf::from(src.path),
@@ -171,19 +204,34 @@ pub async fn create_plan(app: AppHandle, state: State<'_, AppState>, args: PlanA
         Ok(engine.plan(&req, &Control::new(), |phase, done, total| {
             if last.elapsed().as_millis() > 120 || done == total {
                 last = std::time::Instant::now();
-                let _ = app.emit("plan-progress", PlanProgress { phase: phase.into(), done, total });
+                let _ = app.emit(
+                    "plan-progress",
+                    PlanProgress {
+                        phase: phase.into(),
+                        done,
+                        total,
+                    },
+                );
             }
         })?)
     })
     .await?;
     let plan_id = uuid::Uuid::new_v4().to_string();
-    state.plans.lock().unwrap_or_else(|e| e.into_inner()).insert(plan_id.clone(), plan.clone());
+    state
+        .plans
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .insert(plan_id.clone(), plan.clone());
     Ok(PlanView { plan_id, plan })
 }
 
 #[tauri::command]
 pub fn discard_plan(state: State<'_, AppState>, plan_id: String) {
-    state.plans.lock().unwrap_or_else(|e| e.into_inner()).remove(&plan_id);
+    state
+        .plans
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .remove(&plan_id);
 }
 
 fn spawn_run(app: AppHandle, state: &AppState, id: String) -> R<()> {
@@ -192,7 +240,11 @@ fn spawn_run(app: AppHandle, state: &AppState, id: String) -> R<()> {
         return Err(ui("invalid_input", "this import is already running"));
     }
     let control = Control::new();
-    state.controls.lock().unwrap_or_else(|e| e.into_inner()).insert(id.clone(), control.clone());
+    state
+        .controls
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .insert(id.clone(), control.clone());
     std::thread::Builder::new()
         .name(format!("import-{}", &id[..8]))
         .spawn(move || {
@@ -216,7 +268,12 @@ pub fn start_import(app: AppHandle, state: State<'_, AppState>, plan_id: String)
         .lock()
         .unwrap_or_else(|e| e.into_inner())
         .remove(&plan_id)
-        .ok_or_else(|| ui("not_found", "This plan is no longer available. Prepare the import again."))?;
+        .ok_or_else(|| {
+            ui(
+                "not_found",
+                "This plan is no longer available. Prepare the import again.",
+            )
+        })?;
     let id = state.engine.create_session(&plan)?;
     spawn_run(app, &state, id.clone())?;
     Ok(id)
@@ -224,7 +281,12 @@ pub fn start_import(app: AppHandle, state: State<'_, AppState>, plan_id: String)
 
 #[tauri::command]
 pub fn pause_import(state: State<'_, AppState>, session_id: String) -> R<()> {
-    match state.controls.lock().unwrap_or_else(|e| e.into_inner()).get(&session_id) {
+    match state
+        .controls
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .get(&session_id)
+    {
         Some(c) if state.engine.is_running(&session_id) => {
             c.pause();
             Ok(())
@@ -241,7 +303,12 @@ pub fn resume_import(app: AppHandle, state: State<'_, AppState>, session_id: Str
 #[tauri::command]
 pub fn cancel_import(state: State<'_, AppState>, session_id: String) -> R<()> {
     if state.engine.is_running(&session_id) {
-        if let Some(c) = state.controls.lock().unwrap_or_else(|e| e.into_inner()).get(&session_id) {
+        if let Some(c) = state
+            .controls
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .get(&session_id)
+        {
             c.cancel();
         }
         Ok(())
@@ -263,7 +330,10 @@ pub fn list_sessions(state: State<'_, AppState>, limit: Option<usize>) -> R<Vec<
         .engine
         .sessions(limit.unwrap_or(200).min(5000))?
         .into_iter()
-        .map(|info| SessionListItem { running: state.engine.is_running(&info.id), info })
+        .map(|info| SessionListItem {
+            running: state.engine.is_running(&info.id),
+            info,
+        })
         .collect())
 }
 
@@ -296,25 +366,43 @@ pub async fn session_detail(state: State<'_, AppState>, session_id: String) -> R
 
 /// Ask where to save, then write. Exports never overwrite an existing file.
 #[tauri::command]
-pub async fn export_report(app: AppHandle, state: State<'_, AppState>, session_id: String, format: String) -> R<Option<String>> {
+pub async fn export_report(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    session_id: String,
+    format: String,
+) -> R<Option<String>> {
     let fmt = match format.as_str() {
         "json" => ReportFormat::Json,
         "csv" => ReportFormat::Csv,
         _ => return Err(ui("invalid_input", "unknown format")),
     };
     let report = state.engine.report(&session_id)?;
-    let ext = if fmt == ReportFormat::Json { "json" } else { "csv" };
-    let name = format!("mediaflow-report-{}.{ext}", &session_id[..8.min(session_id.len())]);
+    let ext = if fmt == ReportFormat::Json {
+        "json"
+    } else {
+        "csv"
+    };
+    let name = format!(
+        "mediaflow-report-{}.{ext}",
+        &session_id[..8.min(session_id.len())]
+    );
     let picked = {
         let app = app.clone();
         tauri::async_runtime::spawn_blocking(move || {
-            app.dialog().file().set_file_name(&name).add_filter(ext.to_uppercase(), &[ext]).blocking_save_file()
+            app.dialog()
+                .file()
+                .set_file_name(&name)
+                .add_filter(ext.to_uppercase(), &[ext])
+                .blocking_save_file()
         })
         .await
         .map_err(|e| ui("internal", e.to_string()))?
     };
     let Some(fp) = picked else { return Ok(None) };
-    let path = fp.into_path().map_err(|_| ui("invalid_input", "not a local file"))?;
+    let path = fp
+        .into_path()
+        .map_err(|_| ui("invalid_input", "not a local file"))?;
     if path.exists() {
         return Err(ui("conflict", "A file with this name already exists. MediaFlow never overwrites files; choose another name."));
     }
@@ -331,7 +419,11 @@ pub struct CompareArgs {
 }
 
 #[tauri::command]
-pub async fn run_compare(app: AppHandle, state: State<'_, AppState>, args: CompareArgs) -> R<CompareReport> {
+pub async fn run_compare(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    args: CompareArgs,
+) -> R<CompareReport> {
     let engine = state.engine.clone();
     let src = PathBuf::from(engine.grant(&args.source_grant)?.path);
     let dests = args
@@ -339,16 +431,39 @@ pub async fn run_compare(app: AppHandle, state: State<'_, AppState>, args: Compa
         .iter()
         .map(|id| engine.grant(id).map(|g| PathBuf::from(g.path)))
         .collect::<Result<Vec<_>, _>>()?;
-    let exclusions = args.profile_id.as_deref().and_then(builtin).map(|p| p.exclusions).unwrap_or_default();
-    let mode = if args.verified { CompareMode::Verified } else { CompareMode::Quick };
+    let exclusions = args
+        .profile_id
+        .as_deref()
+        .and_then(builtin)
+        .map(|p| p.exclusions)
+        .unwrap_or_default();
+    let mode = if args.verified {
+        CompareMode::Verified
+    } else {
+        CompareMode::Quick
+    };
     blocking(move || {
         let mut last = std::time::Instant::now();
-        Ok(engine.compare(&src, &dests, mode, &exclusions, &Control::new(), |done, total| {
-            if last.elapsed().as_millis() > 120 || done == total {
-                last = std::time::Instant::now();
-                let _ = app.emit("compare-progress", PlanProgress { phase: "comparing".into(), done, total });
-            }
-        })?)
+        Ok(engine.compare(
+            &src,
+            &dests,
+            mode,
+            &exclusions,
+            &Control::new(),
+            |done, total| {
+                if last.elapsed().as_millis() > 120 || done == total {
+                    last = std::time::Instant::now();
+                    let _ = app.emit(
+                        "compare-progress",
+                        PlanProgress {
+                            phase: "comparing".into(),
+                            done,
+                            total,
+                        },
+                    );
+                }
+            },
+        )?)
     })
     .await
 }
@@ -376,12 +491,27 @@ pub fn overview(state: State<'_, AppState>) -> R<Overview> {
             !s.running
                 && matches!(
                     s.info.state,
-                    SessionState::Interrupted | SessionState::Paused | SessionState::Failed | SessionState::CompletedWithErrors | SessionState::Planned
+                    SessionState::Interrupted
+                        | SessionState::Paused
+                        | SessionState::Failed
+                        | SessionState::CompletedWithErrors
+                        | SessionState::Planned
                 )
         })
-        .map(|s| SessionListItem { info: s.info.clone(), running: s.running })
+        .map(|s| SessionListItem {
+            info: s.info.clone(),
+            running: s.running,
+        })
         .collect();
     let grants: Vec<GrantView> = list_grants(state)?;
-    let (destinations, sources) = grants.into_iter().partition(|g| g.grant.kind == GrantKind::Destination);
-    Ok(Overview { recent: all.into_iter().take(6).collect(), attention, destinations, sources, volumes: core_volumes() })
+    let (destinations, sources) = grants
+        .into_iter()
+        .partition(|g| g.grant.kind == GrantKind::Destination);
+    Ok(Overview {
+        recent: all.into_iter().take(6).collect(),
+        attention,
+        destinations,
+        sources,
+        volumes: core_volumes(),
+    })
 }

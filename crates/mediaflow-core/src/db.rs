@@ -1,8 +1,13 @@
 //! Local SQLite store: grants, sessions, durable operation journal, hash cache
 //! and library index. Explicit, numbered, forward-only migrations.
 //!
-//! Durability: WAL + `synchronous=FULL`, so a committed journal entry
-//! survives power loss on file systems that honour fsync.
+//! Durability: WAL with `synchronous=NORMAL` — the journal is always
+//! consistent, and per-file entries become durable at the next checkpoint.
+//! Every session state change forces a full checkpoint (fsync). Losing the
+//! last few per-file entries on power loss is safe by design: on resume the
+//! executor re-validates every non-final entry against the disk and
+//! re-verifies (SHA-256) any copy it finds, so nothing is ever declared done
+//! without proof.
 
 use std::path::Path;
 
@@ -277,7 +282,7 @@ impl Db {
     fn init(conn: Connection) -> Result<Db> {
         conn.busy_timeout(std::time::Duration::from_secs(5))?;
         conn.pragma_update(None, "journal_mode", "WAL")?;
-        conn.pragma_update(None, "synchronous", "FULL")?;
+        conn.pragma_update(None, "synchronous", "NORMAL")?;
         conn.pragma_update(None, "foreign_keys", "ON")?;
         let mut db = Db { conn };
         db.migrate()?;
@@ -488,6 +493,9 @@ impl Db {
              WHERE id=?1",
             params![id, state.as_str(), error, now, finished],
         )?;
+        // Make the session state (and every entry before it) durable now.
+        self.conn
+            .query_row("PRAGMA wal_checkpoint(FULL)", [], |_| Ok(()))?;
         Ok(())
     }
 

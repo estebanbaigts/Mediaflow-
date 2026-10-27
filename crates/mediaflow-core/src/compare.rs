@@ -154,8 +154,10 @@ impl Engine {
         }
 
         let mut hasher = CachedHasher { engine: self };
-        let mut dest_hash: Vec<HashMap<String, Option<Sha256Hex>>> =
+        let mut dest_hash: Vec<HashMap<Sha256Hex, String>> =
             vec![HashMap::new(); destinations.len()];
+        let mut hashed_sizes: Vec<std::collections::HashSet<u64>> =
+            vec![Default::default(); destinations.len()];
         let by_size: Vec<HashMap<u64, Vec<&ScannedFile>>> = dest_scans
             .iter()
             .map(|s| {
@@ -236,21 +238,17 @@ impl Engine {
                         }
                     }
                     Some(sh) => {
-                        let mut found = None;
-                        for c in by_size[di].get(&f.size).into_iter().flatten() {
-                            let h = dest_hash[di]
-                                .entry(c.rel_path.clone())
-                                .or_insert_with(|| {
-                                    hasher
-                                        .hash(&ds.root.join(&c.rel_path), &c.stamp, control)
-                                        .ok()
-                                })
-                                .clone();
-                            if h.as_ref() == Some(sh) {
-                                found = Some(c.rel_path.clone());
-                                break;
+                        // Hash each destination size bucket once; then O(1) lookups.
+                        if hashed_sizes[di].insert(f.size) {
+                            for c in by_size[di].get(&f.size).into_iter().flatten() {
+                                if let Ok(h) =
+                                    hasher.hash(&ds.root.join(&c.rel_path), &c.stamp, control)
+                                {
+                                    dest_hash[di].entry(h).or_insert_with(|| c.rel_path.clone());
+                                }
                             }
                         }
+                        let found = dest_hash[di].get(sh).cloned();
                         match found {
                             Some(rel) => {
                                 matched[di].insert(rel.clone());

@@ -1060,9 +1060,24 @@ impl Runner<'_> {
     }
 
     fn verify_parallel(&mut self, writers: &[Writer]) -> Vec<Result<Sha256Hex>> {
-        let counter = Arc::new(AtomicU64::new(0));
         let base = self.progress.bytes_verified;
         let control = self.control.clone();
+        // One destination: verify on this thread, no polling latency.
+        if let [w] = writers {
+            let mut done = 0u64;
+            let r = hash_file(&w.temp, &control, |n| {
+                done += n;
+                self.progress.bytes_verified = base + done;
+                if let Some(c) = self.progress.current.as_mut() {
+                    c.done = done;
+                }
+                self.emit(false);
+            })
+            .map(|(h, _)| h);
+            return vec![r];
+        }
+        // Several destinations (usually different drives): verify in parallel.
+        let counter = Arc::new(AtomicU64::new(0));
         let paths: Vec<PathBuf> = writers.iter().map(|w| w.temp.clone()).collect();
         std::thread::scope(|scope| {
             let handles: Vec<_> = paths
@@ -1078,8 +1093,10 @@ impl Runner<'_> {
                     })
                 })
                 .collect();
+            let mut wait = Duration::from_millis(1);
             while !handles.iter().all(|h| h.is_finished()) {
-                std::thread::sleep(Duration::from_millis(50));
+                std::thread::sleep(wait);
+                wait = (wait * 2).min(Duration::from_millis(50));
                 self.progress.bytes_verified = base + counter.load(Ordering::Relaxed);
                 if let Some(c) = self.progress.current.as_mut() {
                     c.done = counter.load(Ordering::Relaxed) / paths.len().max(1) as u64;

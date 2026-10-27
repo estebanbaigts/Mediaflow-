@@ -169,6 +169,9 @@ struct DestIndex<'a> {
     /// Collision keys reserved by this plan.
     reserved: HashSet<String>,
     hashes: HashMap<String, Option<Sha256Hex>>,
+    /// Content index, filled lazily one size bucket at a time.
+    by_hash: HashMap<Sha256Hex, &'a ScannedFile>,
+    hashed_sizes: HashSet<u64>,
 }
 
 pub fn build_plan(
@@ -197,6 +200,8 @@ pub fn build_plan(
                 by_size,
                 reserved: HashSet::new(),
                 hashes: HashMap::new(),
+                by_hash: HashMap::new(),
+                hashed_sizes: HashSet::new(),
             }
         })
         .collect();
@@ -353,50 +358,48 @@ pub fn build_plan(
 
             // Same content elsewhere in the destination (different name)?
             if matches!(action, PlanAction::Copy) {
-                if let Some(cands) = idx.by_size.get(&f.size).cloned() {
-                    for c in cands {
-                        if collision_key(&c.rel_path) == collision_key(&target_rel) {
-                            continue;
-                        }
-                        let ex_hash = if source_sha.is_some() {
-                            cached_hash(idx, hasher, dest_root, c, control)
-                        } else {
-                            None
-                        };
-                        let level = compare(
-                            &Facts {
-                                name: f.file_name(),
-                                size: Some(f.size),
-                                mtime_ns: Some(f.stamp.mtime_ns),
-                                sha256: source_sha.as_ref(),
-                            },
-                            &Facts {
-                                name: c.file_name(),
-                                size: Some(c.size),
-                                mtime_ns: Some(c.stamp.mtime_ns),
-                                sha256: ex_hash.as_ref(),
-                            },
-                        );
-                        if level == MatchLevel::VerifiedIdentical
-                            && input.profile.duplicates == DuplicatePolicy::SkipVerified
-                        {
-                            action = PlanAction::SkipDuplicate {
-                                existing_rel: c.rel_path.clone(),
-                                level,
-                            };
-                            break;
-                        }
-                        if matches!(
-                            level,
-                            MatchLevel::ProbableIdentical | MatchLevel::SameSizeOnly
-                        ) {
-                            notes.push(PlanNote::PossibleDuplicate {
-                                existing_rel: c.rel_path.clone(),
-                                level,
-                            });
-                            break;
+                let target_key = collision_key(&target_rel);
+                if let Some(sh) = source_sha.as_ref() {
+                    ensure_size_hashed(idx, hasher, dest_root, f.size, control);
+                    if let Some(c) = idx.by_hash.get(sh).copied() {
+                        if collision_key(&c.rel_path) != target_key {
+                            let level = MatchLevel::VerifiedIdentical;
+                            if input.profile.duplicates == DuplicatePolicy::SkipVerified {
+                                action = PlanAction::SkipDuplicate {
+                                    existing_rel: c.rel_path.clone(),
+                                    level,
+                                };
+                            } else {
+                                notes.push(PlanNote::PossibleDuplicate {
+                                    existing_rel: c.rel_path.clone(),
+                                    level,
+                                });
+                            }
                         }
                     }
+                } else if let Some(c) = idx
+                    .by_size
+                    .get(&f.size)
+                    .and_then(|v| v.iter().find(|c| collision_key(&c.rel_path) != target_key))
+                {
+                    let level = compare(
+                        &Facts {
+                            name: f.file_name(),
+                            size: Some(f.size),
+                            mtime_ns: Some(f.stamp.mtime_ns),
+                            sha256: None,
+                        },
+                        &Facts {
+                            name: c.file_name(),
+                            size: Some(c.size),
+                            mtime_ns: Some(c.stamp.mtime_ns),
+                            sha256: None,
+                        },
+                    );
+                    notes.push(PlanNote::PossibleDuplicate {
+                        existing_rel: c.rel_path.clone(),
+                        level,
+                    });
                 }
             }
 
@@ -504,6 +507,25 @@ fn cached_hash(
         .entry(f.rel_path.clone())
         .or_insert_with(|| hasher.hash(&root.join(&f.rel_path), &f.stamp, control).ok())
         .clone()
+}
+
+/// Hash every destination file of `size` once, so content lookups are O(1).
+fn ensure_size_hashed<'a>(
+    idx: &mut DestIndex<'a>,
+    hasher: &mut dyn HashProvider,
+    root: &Path,
+    size: u64,
+    control: &Control,
+) {
+    if !idx.hashed_sizes.insert(size) {
+        return;
+    }
+    let cands: Vec<&'a ScannedFile> = idx.by_size.get(&size).cloned().unwrap_or_default();
+    for c in cands {
+        if let Some(h) = cached_hash(idx, hasher, root, c, control) {
+            idx.by_hash.entry(h).or_insert(c);
+        }
+    }
 }
 
 fn free_name(idx: &DestIndex<'_>, rel: &str) -> String {

@@ -282,7 +282,7 @@ code {
 }
 .grid-2 {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 18px;
 }
 .section {
@@ -536,6 +536,18 @@ code {
   font-size: 12px;
   text-align: right;
   white-space: nowrap;
+}
+.row-icon.tone-ok {
+  color: var(--ok);
+}
+.row-icon.tone-warn {
+  color: var(--warn);
+}
+.row-icon.tone-bad {
+  color: var(--bad);
+}
+.row-icon.tone-info {
+  color: var(--info);
 }
 .row-chevron {
   color: var(--muted);
