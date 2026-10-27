@@ -22,6 +22,16 @@ on:
         description: "Create the release as a draft"
         type: boolean
         default: false
+  # Also callable from ci.yml (Actions → CI → Run workflow with a version),
+  # so the release only happens after the whole test suite passed.
+  workflow_call:
+    inputs:
+      version:
+        type: string
+        required: true
+      draft:
+        type: boolean
+        default: false
 
 permissions:
   contents: write
