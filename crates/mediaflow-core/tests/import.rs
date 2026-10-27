@@ -130,6 +130,9 @@ fn source_modified_during_copy() {
     assert!(temps(&fx.dst).is_empty());
 }
 
+// Unix only: Windows refuses to rename a folder while a file inside it is
+// open, so the unplug is simulated between write and verify there (below).
+#[cfg(unix)]
 #[test]
 fn destination_disconnected_then_resumed() {
     let fx = Fx::new();
@@ -150,6 +153,53 @@ fn destination_disconnected_then_resumed() {
                     io::ErrorKind::NotFound,
                     "device gone",
                 )));
+            }
+            Ok(())
+        })),
+        ..Default::default()
+    };
+    assert_eq!(
+        run(&e, &id, &Control::new(), Some(Arc::new(hooks))).unwrap(),
+        SessionState::Interrupted
+    );
+    let s = e.session(&id).unwrap();
+    assert!(s.last_error.unwrap().contains("no longer available"));
+    // While unplugged, resume refuses to fake progress.
+    assert_eq!(
+        run(&e, &id, &Control::new(), None).unwrap(),
+        SessionState::Interrupted
+    );
+    // Reconnect and resume.
+    std::fs::rename(&parked, &fx.dst).unwrap();
+    assert_eq!(
+        run(&e, &id, &Control::new(), None).unwrap(),
+        SessionState::Completed
+    );
+    for i in 0..4 {
+        assert_eq!(
+            std::fs::read(fx.dst.join(format!("clip{i}.mp4"))).unwrap(),
+            data(i, 200_000)
+        );
+    }
+    assert!(temps(&fx.dst).is_empty());
+}
+
+#[test]
+fn destination_disconnected_before_verify_then_resumed() {
+    let fx = Fx::new();
+    for i in 0..4 {
+        fx.write_src(&format!("clip{i}.mp4"), &data(i, 200_000));
+    }
+    let e = fx.engine();
+    let id = plan_and_create(&e, &request(&fx, mirror(), vec![fx.dst.clone()]));
+    let dst = fx.dst.clone();
+    let parked = fx.dst.with_extension("unplugged");
+    let parked2 = parked.clone();
+    let hooks = Hooks {
+        before_verify: Some(Box::new(move |rel, _, _| {
+            if rel == "clip2.mp4" {
+                // Drive unplugged after the copy was written, before it is re-read.
+                std::fs::rename(&dst, &parked2).unwrap();
             }
             Ok(())
         })),
