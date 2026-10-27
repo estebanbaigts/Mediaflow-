@@ -538,12 +538,5 @@ pub fn detected_volumes(state: State<'_, AppState>) -> Vec<crate::native::Detect
 /// the backend itself detected; the UI cannot name an arbitrary path.
 #[tauri::command]
 pub fn use_detected_volume(state: State<'_, AppState>, id: String) -> R<GrantView> {
-    let v = state
-        .native
-        .detected(&id)
-        .ok_or_else(|| ui("not_found", "This card is no longer connected."))?;
-    Ok(grant_view(state.engine.authorize(
-        std::path::Path::new(&v.mount_point),
-        GrantKind::Source,
-    )?))
+    Ok(grant_view(state.native.authorize_detected(&id)?))
 }

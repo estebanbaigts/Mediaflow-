@@ -6,7 +6,6 @@
 //! this module starts an import on its own: a detected card only produces a
 //! suggestion the user has to accept.
 
-use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -15,7 +14,6 @@ use mediaflow_core::progress::Progress;
 use mediaflow_core::state::SessionState;
 use mediaflow_core::util::human_bytes;
 use mediaflow_core::Engine;
-use serde::Serialize;
 use tauri::image::Image;
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::{TrayIcon, TrayIconBuilder};
@@ -32,14 +30,8 @@ pub const APP_GROUP: &str = "group.org.mediaflow.app";
 const UI_THROTTLE: Duration = Duration::from_millis(500);
 const SNAPSHOT_THROTTLE: Duration = Duration::from_secs(3);
 
-/// A removable volume seen by the watcher, referenced by the UI by id only.
-#[derive(Debug, Clone, Serialize)]
-pub struct DetectedVolume {
-    pub id: String,
-    pub name: String,
-    pub mount_point: String,
-    pub total_bytes: u64,
-}
+pub use mediaflow_core::volumes::DetectedVolume;
+use mediaflow_core::volumes::DetectionRegistry;
 
 struct Inner {
     tray: Option<TrayIcon>,
@@ -49,7 +41,7 @@ struct Inner {
     paused: bool,
     last_ui: Instant,
     last_snapshot: Instant,
-    detected: HashMap<String, DetectedVolume>,
+    detected: DetectionRegistry,
 }
 
 #[derive(Clone)]
@@ -95,7 +87,7 @@ impl Native {
                 paused: false,
                 last_ui: past,
                 last_snapshot: past,
-                detected: HashMap::new(),
+                detected: DetectionRegistry::default(),
             })),
         }
     }
@@ -398,39 +390,33 @@ impl Native {
     pub fn start_volume_watcher(&self) {
         let me = self.clone();
         let _ = std::thread::Builder::new().name("volume-watcher".into()).spawn(move || {
-            let key = |v: &mediaflow_core::volumes::Volume| v.mount_point.clone();
-            let mut known: HashSet<String> =
-                mediaflow_core::volumes::list_volumes().iter().filter(|v| v.removable).map(key).collect();
+            me.lock().detected = DetectionRegistry::new(&mediaflow_core::volumes::list_volumes());
             loop {
                 std::thread::sleep(Duration::from_secs(3));
-                let now: Vec<_> = mediaflow_core::volumes::list_volumes().into_iter().filter(|v| v.removable).collect();
-                let present: HashSet<String> = now.iter().map(key).collect();
-                for v in now.iter().filter(|v| !known.contains(&key(v))) {
-                    let d = DetectedVolume {
-                        id: uuid::Uuid::new_v4().to_string(),
-                        name: if v.name.is_empty() { v.mount_point.clone() } else { v.name.clone() },
-                        mount_point: v.mount_point.clone(),
-                        total_bytes: v.total_bytes,
-                    };
-                    me.lock().detected.insert(d.id.clone(), d.clone());
+                let now = mediaflow_core::volumes::list_volumes();
+                let fresh = me.lock().detected.update(&now);
+                for d in fresh {
                     me.notify(
                         &format!("{} connected", d.name),
                         "Open MediaFlow to prepare a verified import. Nothing starts automatically.",
                     );
                     let _ = me.app.emit("volume-detected", &d);
                 }
-                me.lock().detected.retain(|_, d| present.contains(&d.mount_point));
-                known = present;
             }
         });
     }
 
     pub fn detected_volumes(&self) -> Vec<DetectedVolume> {
-        self.lock().detected.values().cloned().collect()
+        self.lock().detected.all()
     }
 
-    pub fn detected(&self, id: &str) -> Option<DetectedVolume> {
-        self.lock().detected.get(id).cloned()
+    /// Authorize a detected card by id (read-only source grant).
+    pub fn authorize_detected(
+        &self,
+        id: &str,
+    ) -> mediaflow_core::Result<mediaflow_core::db::Grant> {
+        let g = self.lock();
+        self.engine.authorize_detected(&g.detected, id)
     }
 }
 

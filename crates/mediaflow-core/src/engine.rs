@@ -211,6 +211,19 @@ impl Engine {
         self.db().add_grant(&c.to_string_lossy(), kind, &label)
     }
 
+    /// Authorize a card the backend itself detected, by its opaque id.
+    /// Always a *source* (read-only) grant.
+    pub fn authorize_detected(
+        &self,
+        registry: &crate::volumes::DetectionRegistry,
+        id: &str,
+    ) -> Result<Grant> {
+        let v = registry
+            .get(id)
+            .ok_or_else(|| MfError::NotFound("this card is no longer connected".into()))?;
+        self.authorize(Path::new(&v.mount_point), GrantKind::Source)
+    }
+
     pub fn grants(&self) -> Result<Vec<Grant>> {
         self.db().list_grants()
     }
