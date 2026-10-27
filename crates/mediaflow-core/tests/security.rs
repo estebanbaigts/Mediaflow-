@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 use common::*;
 use mediaflow_core::db::GrantKind;
-use mediaflow_core::state::{OpState, SessionState};
+use mediaflow_core::state::SessionState;
 use mediaflow_core::{Control, Engine, MfError};
 
 #[test]
@@ -142,7 +142,7 @@ fn symlink_planted_in_destination_after_planning() {
         SessionState::CompletedWithErrors
     );
     let (_, ops) = e.session_ops(&id).unwrap();
-    assert_eq!(ops[0].state, OpState::Failed);
+    assert_eq!(ops[0].state, mediaflow_core::state::OpState::Failed);
     assert_eq!(ops[0].error_code.as_deref(), Some("path_rejected"));
     assert!(
         std::fs::read_dir(&elsewhere).unwrap().next().is_none(),
