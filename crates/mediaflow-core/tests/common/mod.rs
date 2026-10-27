@@ -24,7 +24,8 @@ pub struct Fx {
 impl Fx {
     pub fn new() -> Fx {
         let tmp = tempfile::tempdir().unwrap();
-        let root = std::fs::canonicalize(tmp.path()).unwrap();
+        // Same canonical form as the engine (no `\\?\` prefix on Windows).
+        let root = mediaflow_core::paths::dunce_canonicalize(tmp.path()).unwrap();
         let (src, dst, dst2) = (root.join("card"), root.join("backup"), root.join("backup2"));
         for d in [&src, &dst, &dst2] {
             std::fs::create_dir_all(d).unwrap();
